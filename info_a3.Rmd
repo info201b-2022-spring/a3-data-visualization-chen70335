@@ -1,0 +1,178 @@
+---
+title: "info_a3"
+author: "Nathan Chen"
+date: '2022-05-20'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+vera_df = read.csv('incarceration_trends.csv')
+
+```
+
+
+## Introduction
+
+This dataset helps us understand county and jurisdiction level jail and prison data in the U.S. The variables I have chosen to analyze include variables that indicate race distribution in jail and prison, which I will compared and monitor the trends that currently exist that may lead to understanding of racial inequality and discrimination.
+
+Variables to consider: total jail pop vs prison pop Race distribution (aapi, black, latinx, native, white, other_race), jail (\_jail_pop) vs prison (\_prison_pop)
+
+## Summary Information
+
+1. What is the average prison population to population ratio of each state in 2016?
+```{r Summary 1, echo=FALSE}
+# 
+prison_pop_ratio = vera_df %>% 
+  select(year, state, total_pop, total_prison_pop) %>%
+  filter(year == 2016) %>% 
+  na.omit() %>% 
+  group_by(state) %>% 
+  summarize(prison_pop_to_total_pop_ratio = mean(total_prison_pop / total_pop)) %>% 
+  arrange(desc(prison_pop_to_total_pop_ratio))
+prison_pop_ratio
+```
+
+2. How has black jail population changed from 2006 to 2016?
+```{r Summary 2, echo=FALSE}
+black_prison_pop = vera_df %>% 
+  select(year, black_prison_pop) %>%
+  filter(year >= 2006, year <= 2016) %>% 
+  group_by(year) %>% 
+  na.omit() %>% 
+  summarize(black_prison_pop = sum(black_prison_pop))
+
+black_prison_pop_change = black_prison_pop[black_prison_pop$year==2016, "black_prison_pop"] - black_prison_pop[black_prison_pop$year==2006, "black_prison_pop"]
+black_prison_pop_change
+```
+
+3. Which state during 2016 had the highest aapi prison population?
+```{r Summary 3, echo=FALSE}
+aapi_prison_high = vera_df %>% 
+  select(year, state, aapi_prison_pop) %>%
+  filter(year == 2016) %>% 
+  na.omit() %>% 
+  group_by(state) %>% 
+  summarise(aapi_prison_pop = sum(aapi_prison_pop)) %>% 
+  filter(aapi_prison_pop == max(aapi_prison_pop)) %>% 
+  pull(state)
+aapi_prison_high
+```
+
+4. Which state during 2016 had the lowest white jail population?
+```{r Summary 4, echo=FALSE}
+white_jail_low = vera_df %>% 
+  select(year, state, white_jail_pop) %>%
+  filter(year == 2016) %>% 
+  na.omit() %>% 
+  group_by(state) %>% 
+  summarise(white_jail_pop = sum(white_jail_pop)) %>% 
+  filter(white_jail_pop == min(white_jail_pop)) %>% 
+  pull(state)
+white_jail_low
+```
+
+5. Which state had the highest total prison population in 2016?
+```{r Summary 5, echo=FALSE}
+highest_state_prison_pop = vera_df %>% 
+  select(year, state, total_prison_pop) %>% 
+  filter(year == 2016) %>% 
+  na.omit() %>% 
+  group_by(state) %>% 
+  summarise(total_prison_pop = sum(total_prison_pop)) %>% 
+  filter(total_prison_pop == max(total_prison_pop)) %>% 
+  pull(state)
+highest_state_prison_pop
+```
+
+## Trends Over Time Chart
+
+This chart was included to analyze Washington State's prison race distribution over time to observe not only the percentages distribution per year, but also whether certain trends emerged over time. From this chart, I found that the percentage distribution did not vary much over the 10 years, however, white prison population held the highest population for the duration.
+
+```{r trends_chart, echo=FALSE}
+library(reshape2)
+library(ggplot2)
+
+race_jail_trends = vera_df %>% 
+  select(year, state, white_prison_pop, aapi_prison_pop, black_prison_pop, latinx_prison_pop,
+         other_race_prison_pop) %>% 
+  filter(year >= 2006, year <= 2016, state == 'WA') %>% 
+  na.omit() %>% 
+  group_by(year) %>%
+  summarize(white_jail_pop = sum(white_prison_pop), aapi_jail_pop = sum(aapi_prison_pop),
+            black_jail_pop = sum(black_prison_pop), latinx_jail_pop = sum(latinx_prison_pop),
+            other_race_jail_pop = sum(other_race_prison_pop)) %>% 
+  melt(id.vars = 'year', variable.name = 'prison_pop_by_race') %>% rename(percentage = value, bar_chart_by_year = year)
+
+race_jail_trends %>% ggplot(aes(y=percentage, x=bar_chart_by_year, fill=prison_pop_by_race)) + 
+  geom_bar(position='fill', stat="identity") +
+  labs(title = 'Washington State Prison Race Distribution 2006 ~ 2016')
+```
+
+
+## Variable Comparison Chart
+
+This chart was included to analyze the jail population rate by race for three of the most populated states in the U.S in 2016. I found that black jail population rate is relatively the highest and most skewed in the radar chart for all three states, while Massachusetts have Latino jail population rate highest relative to other races.
+
+```{r comparison_chart, echo=FALSE}
+library(fmsb)
+
+top_3_pop_rate = vera_df %>% 
+  select(year, state, white_jail_pop_rate, aapi_jail_pop_rate, latinx_jail_pop_rate,
+         black_jail_pop_rate, native_jail_pop_rate) %>% 
+  filter(state == 'NJ' | state == 'NY' | state == 'MA') %>% 
+  filter(year == 2016) %>%
+  group_by(state) %>% 
+  summarize(white_jail_pop_rate = mean(white_jail_pop_rate),
+            aapi_jail_pop_rate =  mean(aapi_jail_pop_rate),
+            latinx_jail_pop_rate = mean(latinx_jail_pop_rate),
+            black_jail_pop_rate = mean(black_jail_pop_rate),
+            native_jail_pop_rate = mean(native_jail_pop_rate))
+top_3_pop_rate = rbind(rep(1300, 5), rep(0, 5), top_3_pop_rate)
+rownames(top_3_pop_rate) = top_3_pop_rate$state
+
+colors_border=c( rgb(0.2,0.5,0.5,0.9), rgb(0.8,0.2,0.5,0.9) , rgb(0.7,0.5,0.1,0.9) )
+colors_in=c( rgb(0.2,0.5,0.5,0.4), rgb(0.8,0.2,0.5,0.4) , rgb(0.7,0.5,0.1,0.4) )
+
+chart2 = top_3_pop_rate %>% select(-state) %>% radarchart(axistype=4 , 
+    #custom polygon
+    pcol=colors_border , pfcol=colors_in , plwd=4 , plty=1, lty=3,
+    #custom the grid
+    cglcol="grey", cglty=3, axislabcol="grey", caxislabels=seq(0,1300,5), cglwd=1.0,
+    #custom labels
+    vlcex=0.8, title='2016 Jail Population Rate by Race in MA, NJ, & NY')
+legend(x=0.7, y=1, legend = c('MA', 'NJ', 'NY'), bty = "n", pch=20 , col=colors_in , text.col = "grey", cex=1.2, pt.cex=3)
+```
+
+## Map
+
+This map was included to visualization which counties and more broadly regions in the United States have higher black prison population to total prison population ratios, because the previous radar chart showed that in most populated states there are much higher black jail population rates, so it would be helpful to see if prison population rates are similar. This map indicates that many counties especially in the Southeast region of the U.S. have higher ratios compared to counties in other regions.
+
+```{r map, echo=FALSE}
+library(stringr)
+
+gis_county_data = map_data('county') %>% 
+  rename(county_name = subregion)
+
+county_2016_df = vera_df %>% 
+  filter(year == 2016) %>% 
+  select(state, county_name, total_prison_pop, black_prison_pop) %>% 
+  na.omit() %>% 
+  summarize(state, county_name, ratio = black_prison_pop/total_prison_pop)
+
+
+county_2016_df$county_name = str_remove_all(county_2016_df$county_name, ' County') %>% 
+  str_to_lower()
+
+county_2016_df = left_join(gis_county_data, county_2016_df, by='county_name')
+
+ggplot() +
+  geom_polygon(county_2016_df, mapping = aes(x=long, y=lat, group=group, fill=ratio), color='black', size=.1) +
+  scale_fill_continuous(low='white', high='red') +
+  labs(title = '2016 U.S. County Prisons Black Pop to Total Pop Ratio', fill = 'Ratio')
+
+
+```
